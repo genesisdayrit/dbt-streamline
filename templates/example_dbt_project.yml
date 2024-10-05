@@ -1,0 +1,133 @@
+# dbt_project.yml for E-commerce Analytics
+
+name: 'ecommerce_analytics'
+version: '1.0.0'
+config-version: 2
+
+# This setting configures which "profile" dbt uses for this project.
+# Profiles are stored in ~/.dbt/profiles.yml
+profile: 'ecommerce_dbt'
+
+# These directories tell dbt where to find different types of files.
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"  # directory which will store compiled SQL files
+clean-targets:         # directories to be removed by `dbt clean`
+  - "target"
+  - "dbt_packages"
+  - "logs"
+
+# Configuring models
+models:
+  ecommerce_analytics:
+    # Global configurations
+    +materialized: view
+    +schema: analytics
+
+    # Staging models
+    staging:
+      +materialized: view
+      
+    # Intermediate models
+    intermediate:
+      +materialized: ephemeral
+
+    # Mart models
+    marts:
+      core:
+        +materialized: table
+      marketing:
+        +materialized: table
+      finance:
+        +materialized: table
+      
+    # Reporting models
+    reporting:
+      +materialized: view
+      +schema: reporting
+
+# Configuring sources
+sources:
+  ecommerce_analytics:
+    ecommerce_platform:
+      +database: raw_data
+      +schema: shopify
+      tables:
+        - name: orders
+          loaded_at_field: _etl_loaded_at
+          freshness:
+            warn_after:
+              count: 12
+              period: hour
+            error_after:
+              count: 24
+              period: hour
+        - name: customers
+        - name: products
+    
+    marketing_platform:
+      +database: raw_data
+      +schema: google_analytics
+      tables:
+        - name: website_traffic
+        - name: campaigns
+
+    payment_processor:
+      +database: raw_data
+      +schema: stripe
+      tables:
+        - name: transactions
+        - name: refunds
+
+# Configuring seeds
+seeds:
+  ecommerce_analytics:
+    +schema: seed_data
+    +quote_columns: true
+
+# Specifying packages
+packages:
+  - package: dbt-labs/dbt_utils
+    version: 0.8.0
+  - package: calogica/dbt_expectations
+    version: 0.5.0
+
+# On-run-start hooks
+on-run-start:
+  - "{{ logging.log_info('Starting ecommerce analytics dbt run...') }}"
+  - "create schema if not exists {{ target.schema }}"
+
+# On-run-end hooks
+on-run-end:
+  - "grant usage on schema {{ target.schema }} to role analyst"
+  - "grant select on all tables in schema {{ target.schema }} to role analyst"
+  - "{{ logging.log_info('Ecommerce analytics dbt run completed successfully') }}"
+
+# Configuring variables
+vars:
+  "dbt_date:time_zone": "America/New_York"
+  start_date: '2020-01-01'
+  "dbt_expectations:warn_for_nulls": False
+
+# Query comment configuration
+query-comment:
+  comment: "dbt model: {{ model.name }} | run at: {{ run_started_at.strftime('%Y-%m-%d %H:%M:%S') }}"
+
+# Configuring docs
+docs:
+  project:
+    host: ecommerce-dbt-docs.company.com
+
+# Setting a custom log path
+log-path: "logs"
+
+# Enabling partial parsing for faster runs
+partial_parse: True
+
+# Fail on warnings to catch potential issues early
+warn-error: True
