@@ -1,0 +1,6 @@
+database: '<YOUR_DATABASE_NAME>'
+schemas:
+  - '<source_1>'
+  - '<source_2>'
+  - '<source_3>'
+
